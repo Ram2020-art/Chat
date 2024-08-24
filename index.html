@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Application</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+   
     <style>
         body, html {
             font-family: 'Red Hat Display', sans-serif;
@@ -21,7 +21,7 @@
             position: fixed;
             bottom: 30px;
             right: 30px;
-            background-color: #007bff;
+            
             color: white;
             border-radius: 50%;
             width: 60px;
@@ -32,13 +32,13 @@
             cursor: pointer;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             transition: background-color 0.3s ease;
-            background-image: url('https://www.rammijar.com.np/images/AGMdpywhTUhH.png');
+            background-image: url('https://cdn-icons-png.flaticon.com/512/4096/4096380.png');
             background-size: cover;
             background-position: center;
         }
 
         .chat-button:hover {
-            background-color: #0056b3;
+            background-color: #fcf9f800;
         }
 
         .chat-popup {
@@ -53,8 +53,6 @@
             transform: scale(0);
             transform-origin: bottom right;
             transition: transform 0.3s ease;
-            max-height: 400px;
-            overflow: hidden;
         }
 
         .chat-popup.active {
@@ -63,7 +61,7 @@
 
         .chat-header {
             padding: 10px;
-            background-color: #007bff;
+            background-color: #45484b;
             color: white;
             border-radius: 10px 10px 0 0;
             display: flex;
@@ -81,6 +79,8 @@
         .chat-header .bio {
             margin-left: 10px;
             font-size: 14px;
+            right: 0px;
+            position: relative;
         }
 
         .chat-header .name {
@@ -91,9 +91,9 @@
         .chat-header .powered-by {
             font-size: 10px;
             color: #d1d1d1;
-            position: absolute;
+            position: right;
             bottom: 5px;
-            right: 10px;
+            right: 0px;
         }
 
         .chat-messages {
@@ -118,7 +118,7 @@
         }
 
         .chat-message.bot .text {
-            background: #007bff;
+            background: #434646;
             color: white;
             border-radius: 10px 10px 10px 0;
             position: relative;
@@ -166,7 +166,7 @@
         .chat-input button {
             background: none;
             border: none;
-            color: #007bff;
+            color: #494745;
             font-size: 18px;
             margin-left: 10px;
             cursor: pointer;
@@ -175,7 +175,7 @@
 
         .typing-indicator {
             font-size: 12px;
-            color: #007bff;
+            color: #333536;
             padding: 5px;
             display: none;
         }
@@ -186,7 +186,7 @@
             height: 8px;
             margin: 0 2px;
             border-radius: 50%;
-            background: #007bff;
+            background: #313233;
             animation: blink 1.4s infinite both;
         }
 
@@ -207,8 +207,8 @@
             }
         }
 
-        .chat-button.recording {
-            background-color: #ff5722;
+        .listening {
+            color: #ff0000;
         }
     </style>
 </head>
@@ -220,12 +220,12 @@
     <div class="chat-header">
         <img src="https://www.rammijar.com.np/images/AGMdpywhTUhH.png" alt="Ram Mijar">
         <div class="bio">
-            Ram Mijar<br>
+           <span>Ram Mijar</span>
             <div class="powered-by">Powered by Ram Mijar</div>
         </div>
         <i class="fas fa-times close-chat" role="button" aria-label="Close chat"></i>
     </div>
-    <div class="chat-messages" id="chatMessages" aria-live="polite"></div>
+    <div class="chat-messages" id="chatMessages"></div>
     <div class="typing-indicator" id="typingIndicator">
         <span></span><span></span><span></span>
     </div>
@@ -248,6 +248,7 @@
     let recognizing = false;
     let recognition;
     let voiceRepliesEnabled = false;
+    let userName = '';
 
     // Toggle chat popup visibility
     chatButton.addEventListener('click', () => {
@@ -274,16 +275,6 @@
         localStorage.setItem('chatHistory', JSON.stringify(history));
     }
 
-    // Check if user has been asked about voice
-    function hasAskedAboutVoice() {
-        return localStorage.getItem('askedAboutVoice') === 'true';
-    }
-
-    // Mark that user has been asked about voice
-    function markVoiceAsked() {
-        localStorage.setItem('askedAboutVoice', 'true');
-    }
-
     // Add a message to the chat
     function addMessage(message, sender, time) {
         const messageElement = document.createElement('div');
@@ -291,8 +282,8 @@
         
         const messageText = document.createElement('div');
         messageText.classList.add('text');
-        messageText.textContent = message;
-        
+        messageText.innerHTML = message;
+
         const messageTime = document.createElement('div');
         messageTime.classList.add('time');
         messageTime.textContent = time;
@@ -300,112 +291,140 @@
         messageElement.appendChild(messageText);
         messageElement.appendChild(messageTime);
         chatMessages.appendChild(messageElement);
-        chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to latest message
+
+        chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to bottom
     }
 
-    // Handle text message send
-    function sendMessage(message) {
-        const time = new Date().toLocaleTimeString();
+    // Handle sending a message
+    function sendMessage() {
+        const message = userInput.value.trim();
+        if (!message) return;
+
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         addMessage(message, 'user', time);
         saveChatHistory(message, 'user', time);
-        simulateBotResponse(message);
-    }
+        userInput.value = '';
 
-    // Simulate bot response (can be replaced with actual API calls)
-    function simulateBotResponse(userMessage) {
         typingIndicator.style.display = 'block';
+
+        // Simulate bot response
         setTimeout(() => {
             typingIndicator.style.display = 'none';
-            const botMessage = `You said: ${userMessage}`;
-            const time = new Date().toLocaleTimeString();
-            addMessage(botMessage, 'bot', time);
-            saveChatHistory(botMessage, 'bot', time);
-            if (voiceRepliesEnabled) {
-                speak(botMessage);
-            }
+            handleResponse(message);
         }, 1000);
     }
 
+    // Handle bot response
+function handleResponse(message) {
+    let response = '';
+    const lowerMessage = message.toLowerCase();
+
+    if (lowerMessage.includes('my name is') || lowerMessage.includes('i am')) {
+        userName = message.replace(/my name is |i am /i, '').trim();
+        response = `Hello, ${userName}!`;
+    } else if (['hello', 'hi', 'hey'].includes(lowerMessage)) {
+        response = 'Hello there!';
+    } else if (lowerMessage.includes('how are you')) {
+        response = "I'm just a bot, but I'm doing well! How about you?";
+    } else if (lowerMessage.includes('what is your name') || lowerMessage.includes('who are you') || lowerMessage.includes('who')) {
+        response = "I'm Ram Mijar, your friendly chatbot!";
+    } else if (lowerMessage.includes('what can you do') || lowerMessage.includes('your purpose') || lowerMessage.includes('what do you do')) {
+        response = "I can chat with you, respond to your questions, and help with basic tasks!";
+    } else if (lowerMessage.includes('tell me a joke') || lowerMessage.includes('joke')) {
+        response = "Why don't scientists trust atoms? Because they make up everything!";
+    } else if (lowerMessage.includes('goodbye') || lowerMessage.includes('bye')) {
+        response = "Goodbye! Have a great day!";
+    } else if (lowerMessage.includes('what time is it') || lowerMessage.includes('time')) {
+        response = `The current time is ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`;
+    } else if (lowerMessage.includes('date today') || lowerMessage.includes('date')) {
+        response = `Today's date is ${new Date().toLocaleDateString()}.`;
+    } else if (lowerMessage.includes('what is your favorite color') || lowerMessage.includes('favorite color') || lowerMessage.includes('color')) {
+        response = "I like all colors, but I think blue suits me well!";
+    } else if (lowerMessage.includes('open website') || lowerMessage.includes('website')) {
+        response = "Sure! Please specify the website you'd like to visit.";
+    } else if (lowerMessage.includes('thank you') || lowerMessage.includes('thanks')) {
+        response = "You're welcome! If you need anything else, just ask.";
+    } else if (lowerMessage.includes('who created you') || lowerMessage.includes('creator') || lowerMessage.includes('who made you')) {
+        response = "I was created by Ram Mijar!";
+    } else if (lowerMessage.includes('tell me a fact') || lowerMessage.includes('fact')) {
+        response = "Did you know? Honey never spoils. Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old!";
+    } else if (lowerMessage.includes('help') || lowerMessage.includes('assist') || lowerMessage.includes('support')) {
+        response = "I'm here to help! You can ask me about the time, date, jokes, or even to tell you a fact.";
+    } else if (lowerMessage.includes('voice')) {
+        voiceRepliesEnabled = !voiceRepliesEnabled;
+        response = voiceRepliesEnabled ? 'Voice replies enabled!' : 'Voice replies disabled!';
+    } else {
+        response = "I'm sorry, I didn't understand that. Could you please rephrase?";
+    }
+
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    addMessage(response, 'bot', time);
+    saveChatHistory(response, 'bot', time);
+
+    if (voiceRepliesEnabled) {
+        speak(response);
+    }
+}
+
+
+    // Speak the response
+    function speak(text) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(utterance);
+    }
+
     // Handle send button click
-    sendButton.addEventListener('click', () => {
-        const message = userInput.value.trim();
-        if (message) {
-            sendMessage(message);
-            userInput.value = '';
+    sendButton.addEventListener('click', sendMessage);
+
+    // Handle Enter key press in input field
+    userInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            sendMessage();
         }
     });
 
-    // Handle Enter key press
-    userInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            sendButton.click();
+    // Initialize voice recognition
+    function initVoiceRecognition() {
+        if (!('webkitSpeechRecognition' in window)) {
+            console.log('Speech recognition not supported.');
+            return;
         }
-    });
-
-    // Initialize speech recognition
-    if ('webkitSpeechRecognition' in window) {
         recognition = new webkitSpeechRecognition();
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.lang = 'en-US';
 
+        recognition.onstart = () => {
+            recognizing = true;
+            voiceButton.classList.add('listening');
+        };
+
+        recognition.onend = () => {
+            recognizing = false;
+            voiceButton.classList.remove('listening');
+        };
+
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
             userInput.value = transcript;
-            sendButton.click();
+            sendMessage();
         };
-
-        recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
-            recognizing = false;
-            voiceButton.classList.remove('recording');
-            alert('Sorry, there was an error with voice recognition. Please try again.');
-        };
-    } else {
-        voiceButton.style.display = 'none'; // Hide voice button if speech recognition is not supported
     }
+
+    initVoiceRecognition();
 
     // Handle voice button click
     voiceButton.addEventListener('click', () => {
         if (recognizing) {
             recognition.stop();
-            voiceButton.classList.remove('recording');
         } else {
             recognition.start();
-            voiceButton.classList.add('recording');
-        }
-        recognizing = !recognizing;
-    });
-
-    // Function to speak text
-    function speak(text) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-US';
-        window.speechSynthesis.speak(utterance);
-    }
-
-    // Handle voice feedback option
-    function handleVoiceFeedback() {
-        if (!hasAskedAboutVoice()) {
-            const askForVoice = confirm('Do you want to enable voice responses?');
-            if (askForVoice) {
-                voiceRepliesEnabled = true;
-            }
-            markVoiceAsked();
-        }
-    }
-
-    // Close chat on outside click
-    window.addEventListener('click', (event) => {
-        if (!chatPopup.contains(event.target) && !chatButton.contains(event.target)) {
-            chatPopup.classList.remove('active');
         }
     });
 
-    // Load chat history and ask about voice feedback
+    // Load chat history
     loadChatHistory();
-    handleVoiceFeedback();
 </script>
 
 </body>

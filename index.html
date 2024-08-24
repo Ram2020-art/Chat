@@ -53,6 +53,8 @@
             transform: scale(0);
             transform-origin: bottom right;
             transition: transform 0.3s ease;
+            max-height: 400px;
+            overflow: hidden;
         }
 
         .chat-popup.active {
@@ -204,6 +206,10 @@
                 opacity: 0.5;
             }
         }
+
+        .chat-button.recording {
+            background-color: #ff5722;
+        }
     </style>
 </head>
 <body>
@@ -215,12 +221,11 @@
         <img src="https://www.rammijar.com.np/images/AGMdpywhTUhH.png" alt="Ram Mijar">
         <div class="bio">
             Ram Mijar<br>
-            
             <div class="powered-by">Powered by Ram Mijar</div>
         </div>
         <i class="fas fa-times close-chat" role="button" aria-label="Close chat"></i>
     </div>
-    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-messages" id="chatMessages" aria-live="polite"></div>
     <div class="typing-indicator" id="typingIndicator">
         <span></span><span></span><span></span>
     </div>
@@ -228,7 +233,6 @@
         <input type="text" id="userInput" placeholder="Type your message here...">
         <button id="sendButton"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
         <button id="voiceButton"><i class="fas fa-microphone" aria-hidden="true"></i></button>
-        
     </div>
 </div>
 
@@ -287,142 +291,122 @@
         
         const messageText = document.createElement('div');
         messageText.classList.add('text');
-        messageText.innerText = message;
+        messageText.textContent = message;
         
         const messageTime = document.createElement('div');
         messageTime.classList.add('time');
-        messageTime.innerText = time;
-        
+        messageTime.textContent = time;
+
         messageElement.appendChild(messageText);
         messageElement.appendChild(messageTime);
-        
         chatMessages.appendChild(messageElement);
-        chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to bottom
-        
-        saveChatHistory(message, sender, time);
-        
-        if (sender === 'bot' && voiceRepliesEnabled) {
-            speakText(message);
-        }
+        chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to latest message
     }
 
-    // Handle text-to-speech
-    function speakText(text) {
-        if (window.speechSynthesis) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.onerror = (event) => {
-                console.error('Speech synthesis error:', event.error);
-            };
-            window.speechSynthesis.speak(utterance);
-        }
+    // Handle text message send
+    function sendMessage(message) {
+        const time = new Date().toLocaleTimeString();
+        addMessage(message, 'user', time);
+        saveChatHistory(message, 'user', time);
+        simulateBotResponse(message);
     }
 
-    // Get the current time
-    function getCurrentTime() {
-        const now = new Date();
-        return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
-    // Handle user input
-    function handleUserInput() {
-        const userMessage = userInput.value.trim();
-        if (userMessage) {
-            const currentTime = getCurrentTime();
-            addMessage(userMessage, 'user', currentTime);
-            userInput.value = '';
-            typingIndicator.style.display = 'flex'; // Show typing animation
-            setTimeout(() => generateBotReply(userMessage, currentTime), 1500); // Simulate bot response delay
-        }
-    }
-
-    // Generate bot's reply based on user input
-    function generateBotReply(userMessage, currentTime) {
-        let botMessage;
-
-        if (!hasAskedAboutVoice()) {
-            botMessage = 'Hello! Would you like me to respond with voice? Type "yes" or "no".';
-            markVoiceAsked();
-        } else {
-            if (/yes/i.test(userMessage)) {
-                botMessage = 'Great! I will respond with voice.';
-                voiceRepliesEnabled = true;
-            } else if (/no/i.test(userMessage)) {
-                botMessage = 'Okay, I will respond with text only.';
-                voiceRepliesEnabled = false;
-            } else {
-                botMessage = 'Sorry, I didn\'t understand that. Please type "yes" or "no".';
+    // Simulate bot response (can be replaced with actual API calls)
+    function simulateBotResponse(userMessage) {
+        typingIndicator.style.display = 'block';
+        setTimeout(() => {
+            typingIndicator.style.display = 'none';
+            const botMessage = `You said: ${userMessage}`;
+            const time = new Date().toLocaleTimeString();
+            addMessage(botMessage, 'bot', time);
+            saveChatHistory(botMessage, 'bot', time);
+            if (voiceRepliesEnabled) {
+                speak(botMessage);
             }
-        }
-
-        // Add more commands
-        if (/hello/i.test(userMessage)) {
-            botMessage = 'Hi there! How can I assist you today?';
-        } else if (/how are you/i.test(userMessage)) {
-            botMessage = 'I\'m just a bot, but I\'m doing great! How can I help you?';
-        } else if (/help/i.test(userMessage)) {
-            botMessage = 'You can ask me anything or say "hello" to start a conversation.';
-        }
-
-        typingIndicator.style.display = 'none'; // Hide typing animation
-        addMessage(botMessage, 'bot', currentTime);
+        }, 1000);
     }
 
-    // Initialize Speech Recognition
-    function initializeSpeechRecognition() {
-        if ('webkitSpeechRecognition' in window) {
-            recognition = new webkitSpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.lang = 'en-US';
-
-            recognition.onstart = () => {
-                recognizing = true;
-                voiceButton.classList.add('recording');
-            };
-
-            recognition.onend = () => {
-                recognizing = false;
-                voiceButton.classList.remove('recording');
-            };
-
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                userInput.value = transcript;
-                handleUserInput();
-            };
-
-            recognition.onerror = (event) => {
-                console.error('Speech recognition error:', event.error);
-                recognizing = false;
-                voiceButton.classList.remove('recording');
-            };
-        } else {
-            console.log('Speech recognition not supported.');
-        }
-    }
-
-    // Event listeners
-    sendButton.addEventListener('click', handleUserInput);
-
-    userInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            handleUserInput();
+    // Handle send button click
+    sendButton.addEventListener('click', () => {
+        const message = userInput.value.trim();
+        if (message) {
+            sendMessage(message);
+            userInput.value = '';
         }
     });
 
+    // Handle Enter key press
+    userInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendButton.click();
+        }
+    });
+
+    // Initialize speech recognition
+    if ('webkitSpeechRecognition' in window) {
+        recognition = new webkitSpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            userInput.value = transcript;
+            sendButton.click();
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            recognizing = false;
+            voiceButton.classList.remove('recording');
+            alert('Sorry, there was an error with voice recognition. Please try again.');
+        };
+    } else {
+        voiceButton.style.display = 'none'; // Hide voice button if speech recognition is not supported
+    }
+
+    // Handle voice button click
     voiceButton.addEventListener('click', () => {
         if (recognizing) {
             recognition.stop();
+            voiceButton.classList.remove('recording');
         } else {
             recognition.start();
+            voiceButton.classList.add('recording');
+        }
+        recognizing = !recognizing;
+    });
+
+    // Function to speak text
+    function speak(text) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        window.speechSynthesis.speak(utterance);
+    }
+
+    // Handle voice feedback option
+    function handleVoiceFeedback() {
+        if (!hasAskedAboutVoice()) {
+            const askForVoice = confirm('Do you want to enable voice responses?');
+            if (askForVoice) {
+                voiceRepliesEnabled = true;
+            }
+            markVoiceAsked();
+        }
+    }
+
+    // Close chat on outside click
+    window.addEventListener('click', (event) => {
+        if (!chatPopup.contains(event.target) && !chatButton.contains(event.target)) {
+            chatPopup.classList.remove('active');
         }
     });
 
-    // Initialize chat and voice recognition
+    // Load chat history and ask about voice feedback
     loadChatHistory();
-    initializeSpeechRecognition();
+    handleVoiceFeedback();
 </script>
 
 </body>
-  </html>
-  
+</html>
